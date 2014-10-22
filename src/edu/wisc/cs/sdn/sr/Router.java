@@ -243,6 +243,15 @@ public class Router
 +		SEE PART THREE on WEBSITE under "Router.java"
 +		SEE sendPacket() to send
 +	                                         */
+
+        // The packet is destined for this interface
+        		if(etherPacket.getEtherType() == Ethernet.TYPE_ARP)
+        		{
+                			handleArpPacket(etherPacket, inIface);
+        		}
+                else if( etherPacket.getEtherType() == Ethernet.TYPE_IPv4) {
+                    handleIPPacket(etherPacket, inIface);
+                }
 		
 		/********************************************************************/
 	}
@@ -296,4 +305,37 @@ public class Router
 			break;
 		}
 	}
+
+    /**
+     * Handle an IP packet received on a specific interface.
+     * @param etherPacket the complete ARP packet that was received
+     * @param inIface the interface on which the packet was received
+     */
+    private void handleIPPacket(Ethernet etherPacket, Iface inIface)
+    {
+        //Make sure it's an IP Packet
+        if(etherPacket.getEtherType() != Ethernet.TYPE_IPv4)
+        {
+            return;
+        }
+
+        IPv4 ipPacket = (IPv4)etherPacket.getPayload();
+        int targetIP = ipPacket.getDestinationAddress();
+
+        if(targetIP == inIface.getIpAddress())
+        {
+            //congratulations, this packet has arrived at its destination!
+            byte ipProtocol = ipPacket.getProtocol();
+
+            switch(ipProtocol)
+            {
+                case IPv4.PROTOCOL_ICMP:
+                    break;
+                case IPv4.PROTOCOL_TCP:
+                    break;
+                case IPv4.PROTOCOL_UDP:
+                    break;
+            }
+        }
+    }
 }
