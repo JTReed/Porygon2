@@ -206,7 +206,8 @@ public class Router
 	 */
 	public boolean sendPacket(Ethernet etherPacket, Iface iface)
 	{ return this.vnsComm.sendPacket(etherPacket, iface.getName()); }
-	
+
+    //TODO -- FOR DATA PLANE
 	/**
 	 * Handle an Ethernet packet received on a specific interface.
 	 * @param etherPacket the Ethernet packet that was received
@@ -218,11 +219,34 @@ public class Router
                 etherPacket.toString().replace("\n", "\n\t"));
 		
 		/********************************************************************/
-		/* TODO: Handle packets                                             */
+		/* TODO: Handle packets
++		either
++		1. forward the packet to another interface
++			If the frame contains an IP packet that is not destined for one of our interfaces:
++				Check the packet has the correct checksum.
++				Decrement the TTL by 1.
++				Find out which entry in the routing table
++					has the longest prefix match with the destination IP address.
++				Check the ARP cache for the next-hop MAC address corresponding
++					to the next-hop IP. If it's there, send the packet.
++					Otherwise, call waitForArp(...) function in the ARPCache
++					 class to send an ARP request for the next-hop IP,
++					 and add the packet to the queue of packets waiting on this ARP request.
++			If error occurs:
++				If an error occurs in any of the above steps,
++					you will have to send an ICMP message back
++					to the sender notifying them of an error.
++		2. pass the packet to the ARP or RIP subsystems
++			See: Invoking Control Plane Code & Responding to Pings
++		3. respond with an ICMP packet
++			See: ICMP on wbpge
++		SEE PART THREE on WEBSITE under "Router.java"
++		SEE sendPacket() to send
++	                                         */
 		
 		/********************************************************************/
 	}
-	
+
 	/**
 	 * Handle an ARP packet received on a specific interface.
 	 * @param etherPacket the complete ARP packet that was received

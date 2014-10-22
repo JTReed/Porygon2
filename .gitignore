@@ -5,3 +5,7 @@ bin
 ip_config
 rtable.*
 pox
+
+# IntelliJ stuff
+.idea/
+*.iml

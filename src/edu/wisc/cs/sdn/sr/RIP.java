@@ -33,6 +33,7 @@ public class RIP implements Runnable
         this.tasksThread = new Thread(this);
     }
 
+    //TODO: for control plane?
 	public void init()
 	{
         // If we are using static routing, then don't do anything
@@ -52,7 +53,14 @@ public class RIP implements Runnable
 		this.tasksThread.start();
 
         /*********************************************************************/
-        /* TODO: Add other initialization code as necessary                  */
+        /* TODO: Add other initialization code as necessary
++		   if not a static static routing table...
++		   	populates the route table with entries
++		   	for the subnets that are directly reachable
++		   	via the router's interfaces, starts a
++		   	thread for period RIP tasks, and performs
++		   	other initialization for RIP as necessary
++		*/
 
         /*********************************************************************/
 	}
@@ -76,11 +84,16 @@ public class RIP implements Runnable
 		RIPv2 ripPacket = (RIPv2)udpPacket.getPayload();
 
         /*********************************************************************/
-        /* TODO: Handle RIP packet                                           */
+        /* TODO: Handle RIP packet
++			If NOT a static routing table
++			Processes a RIP packet that is received by the router
++
++		*/
 
         /*********************************************************************/
 	}
-    
+
+    //TODO: FOR CONTROL PLANE
     /**
       * Perform periodic RIP tasks.
       */
@@ -88,7 +101,11 @@ public class RIP implements Runnable
 	public void run() 
     {
         /*********************************************************************/
-        /* TODO: Send period updates and time out route table entries        */
+        /* TODO: Send period updates and time out route table entries
++			if no static routing table provided
++			send updates to neighbors
++			time out route table entries that neighbors last advertised > 30 secds ago
++		*/
 
         /*********************************************************************/
 	}
