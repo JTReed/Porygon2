@@ -7,11 +7,7 @@ import java.util.Map;
 
 import edu.wisc.cs.sdn.sr.vns.VNSComm;
 
-import net.floodlightcontroller.packet.ARP;
-import net.floodlightcontroller.packet.Ethernet;
-import net.floodlightcontroller.packet.ICMP;
-import net.floodlightcontroller.packet.IPv4;
-import net.floodlightcontroller.packet.UDP;
+import net.floodlightcontroller.packet.*;
 import net.floodlightcontroller.util.MACAddress;
 
 /**
@@ -326,14 +322,39 @@ public class Router
         {
             //congratulations, this packet has arrived at its destination!
             byte ipProtocol = ipPacket.getProtocol();
-
+            int port;
             switch(ipProtocol)
             {
                 case IPv4.PROTOCOL_ICMP:
+                    System.out.println( "ICMP packet received" );
+
+                    ICMP icmpPacket = (ICMP)ipPacket.getPayload();
+                    //TODO check if checksum is valid!
+
                     break;
                 case IPv4.PROTOCOL_TCP:
+                    TCP tcpPacket = (TCP)ipPacket.getPayload();
+                    port = tcpPacket.getDestinationPort();
+
+                    System.out.println( "TCP packet received on port " + port );
+
+                    if(port != 520) {
+                        //TODO: port unreachable
+                        System.out.println( "UDP port unreachable" );
+                    }
+                    else {
+                        //TODO: do stuff
+                    }
                     break;
                 case IPv4.PROTOCOL_UDP:
+                    UDP udpPacket = (UDP)ipPacket.getPayload();
+                    port = udpPacket.getDestinationPort();
+
+                    System.out.println( "UDP packet received on port" + port );
+
+                    break;
+                default:
+                    System.out.println( "Packet not IMP, TCP, or UDP - Ignored" );
                     break;
             }
         }
