@@ -251,6 +251,10 @@ public class Router
             System.out.println( "received IP packet, calling calling handleIpPacket()" );
             handleIPPacket(etherPacket, inIface);
         }
+        else
+        {
+            System.out.println( "packet is neither ARP or IP");
+        }
 		
 		/********************************************************************/
 	}
