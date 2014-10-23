@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
+import com.sun.corba.se.impl.protocol.giopmsgheaders.TargetAddress;
+
 import edu.wisc.cs.sdn.sr.vns.VNSComm;
 
 import net.floodlightcontroller.packet.*;
@@ -241,12 +243,10 @@ public class Router
 +	                                         */
 		
 		/********************************************************************/
-
-        // The packet is destined for this interface
         if(etherPacket.getEtherType() == Ethernet.TYPE_ARP)
         {
             System.out.println( "received ARP packet, calling handleArpPacket()" );
-            //handleArpPacket(etherPacket, inIface);
+            handleArpPacket(etherPacket, inIface);
         }
         else if( etherPacket.getEtherType() == Ethernet.TYPE_IPv4)
         {
@@ -255,7 +255,7 @@ public class Router
         }
         else
         {
-            System.out.println( "packet is neither ARP or IP");
+            System.out.println( "packet is neither ARP nor IP");
         }
 	}
 
@@ -340,6 +340,14 @@ public class Router
 
                     ICMP icmpPacket = (ICMP)ipPacket.getPayload();
                     //TODO check if checksum is valid!
+                    if( icmpPacket.hasGoodChecksum() ) 
+                    {
+                    	System.out.println( "icmp checksum is a go" );
+                    }
+                    else
+                    {
+                    	System.out.println( "icmp checksums do not match - something messed up" );
+                    }
 
                     break;
                 case IPv4.PROTOCOL_TCP:
@@ -347,26 +355,31 @@ public class Router
                     port = tcpPacket.getDestinationPort();
 
                     System.out.println( "TCP packet received on port " + port );
-
-                    if(port != 520) {
-                        //TODO: port unreachable
-                        System.out.println( "UDP port unreachable" );
-                    }
-                    else {
-                        //TODO: do stuff
-                    }
+                    System.out.println( "TCP ERROR: ICMP port unreachable" );
                     break;
                 case IPv4.PROTOCOL_UDP:
                     UDP udpPacket = (UDP)ipPacket.getPayload();
                     port = udpPacket.getDestinationPort();
 
                     System.out.println( "UDP packet received on port" + port );
+                    
+                    if(port != 520) {
+                        //TODO: port unreachable
+                        System.out.println( "UDP ERROR: ICMP port unreachable" );
+                    }
+                    else {
+                        //TODO: do stuff
+                    	System.out.println( "UDP packet on correct port" );
+                    }
 
                     break;
                 default:
-                    System.out.println( "Packet not IMP, TCP, or UDP - Ignored" );
+                    System.out.println( "Packet not ICMP, TCP, or UDP - Ignored" );
                     break;
             }
+        }
+        else {
+        	System.out.println( "Not target location, arrived on: " + inIface.getIpAddress() + ", target: " + targetIP );
         }
     }
 }

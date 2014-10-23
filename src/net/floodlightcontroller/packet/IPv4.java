@@ -491,6 +491,25 @@ public class IPv4 extends BasePacket {
                 (byte)(ipAddress >>> 8),
                 (byte)ipAddress};
     }
+    
+    /**
+     * 
+     * Confirms if checksum matches calculated checksum
+     */
+    public boolean hasGoodChecksum() {
+        byte[] data = new byte[this.totalLength];
+        ByteBuffer bb = ByteBuffer.wrap( data ); 
+        
+        bb.rewind();
+        int accumulation = 0;
+        for( int i = 0; i < this.headerLength * 2; i++ ) {
+        	accumulation += 0xffff & bb.getShort();
+        }
+        accumulation = ( ( accumulation >> 16 ) & 0xffff ) + ( accumulation & 0xffff );
+        short checksum = (short) ( ~accumulation & 0xffff);
+        
+        return ( checksum == this.checksum );
+    }
 
     /* (non-Javadoc)
      * @see java.lang.Object#hashCode()
