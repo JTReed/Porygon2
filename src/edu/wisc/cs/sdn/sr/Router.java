@@ -239,12 +239,14 @@ public class Router
 +		SEE PART THREE on WEBSITE under "Router.java"
 +		SEE sendPacket() to send
 +	                                         */
+		
+		/********************************************************************/
 
         // The packet is destined for this interface
         if(etherPacket.getEtherType() == Ethernet.TYPE_ARP)
         {
             System.out.println( "received ARP packet, calling handleArpPacket()" );
-            handleArpPacket(etherPacket, inIface);
+            //handleArpPacket(etherPacket, inIface);
         }
         else if( etherPacket.getEtherType() == Ethernet.TYPE_IPv4)
         {
@@ -255,8 +257,6 @@ public class Router
         {
             System.out.println( "packet is neither ARP or IP");
         }
-		
-		/********************************************************************/
 	}
 
 	/**
@@ -267,6 +267,7 @@ public class Router
 	private void handleArpPacket(Ethernet etherPacket, Iface inIface)
 	{
 		// Make sure it's an ARP packet
+        System.out.println( "handling ARP packet" );
 		if (etherPacket.getEtherType() != Ethernet.TYPE_ARP)
 		{ return; }
 		
