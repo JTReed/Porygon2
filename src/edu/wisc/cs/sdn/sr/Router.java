@@ -322,7 +322,7 @@ public class Router
         if(targetIP == inIface.getIpAddress())
         {
             //congratulations, this packet has arrived at its destination!
-            System.out.println( "Packet arrived on destination")
+            System.out.println( "Packet arrived on destination");
             byte ipProtocol = ipPacket.getProtocol();
             int port;
             switch(ipProtocol)
