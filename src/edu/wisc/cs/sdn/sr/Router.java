@@ -241,13 +241,16 @@ public class Router
 +	                                         */
 
         // The packet is destined for this interface
-        		if(etherPacket.getEtherType() == Ethernet.TYPE_ARP)
-        		{
-                			handleArpPacket(etherPacket, inIface);
-        		}
-                else if( etherPacket.getEtherType() == Ethernet.TYPE_IPv4) {
-                    handleIPPacket(etherPacket, inIface);
-                }
+        if(etherPacket.getEtherType() == Ethernet.TYPE_ARP)
+        {
+            System.out.println( "received ARP packet, calling handleArpPacket()" );
+            handleArpPacket(etherPacket, inIface);
+        }
+        else if( etherPacket.getEtherType() == Ethernet.TYPE_IPv4)
+        {
+            System.out.println( "received IP packet, calling calling handleIpPacket()" );
+            handleIPPacket(etherPacket, inIface);
+        }
 		
 		/********************************************************************/
 	}
