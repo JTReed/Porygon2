@@ -312,6 +312,7 @@ public class Router
         //Make sure it's an IP Packet
         if(etherPacket.getEtherType() != Ethernet.TYPE_IPv4)
         {
+            System.out.println( "Packet is not IPv4" );
             return;
         }
 
@@ -321,6 +322,7 @@ public class Router
         if(targetIP == inIface.getIpAddress())
         {
             //congratulations, this packet has arrived at its destination!
+            System.out.println( "Packet arrived on destination")
             byte ipProtocol = ipPacket.getProtocol();
             int port;
             switch(ipProtocol)
