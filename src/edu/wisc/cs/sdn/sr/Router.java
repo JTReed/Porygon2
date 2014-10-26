@@ -380,6 +380,25 @@ public class Router
         }
         else {
         	System.out.println( "Not target location, arrived on: " + inIface.getIpAddress() + ", target: " + targetIP );
+        	
+        	if( !ipPacket.hasGoodChecksum() ) {
+        		System.out.println( "Checksum does not match" );
+        		return;
+        	}
+        	
+        	//TODO: decrement TTL by 1
+        	ipPacket.setTtl( (byte)( ipPacket.getTtl() - 1 ) );
+        	
+        	//TODO: Find out which entry in the routing table has the longest prefix match with the destination IP address.
+        	
+        	/*TODO: Check the ARP cache for the next-hop MAC address corresponding to the next-hop IP. 
+        	 * If it's there, send the packet. Otherwise, call waitForArp(...) function in the ARPCache 
+        	 * class to send an ARP request for the next-hop IP, and add the packet to the queue of packets 
+        	 * waiting on this ARP request.
+        	 * 
+        	 */
+        	
+        	
         }
     }
 }
