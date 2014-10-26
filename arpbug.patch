@@ -1,0 +1,29 @@
+diff -ur a/project2/src/edu/wisc/cs/sdn/sr/ArpCache.java b/project2/src/edu/wisc/cs/sdn/sr/ArpCache.java
+--- a/project2/src/edu/wisc/cs/sdn/sr/ArpCache.java	2014-10-07 13:54:19.000000000 -0500
++++ b/project2/src/edu/wisc/cs/sdn/sr/ArpCache.java	2014-10-20 13:39:57.135303792 -0500
+@@ -171,6 +171,8 @@
+ 		arpPkt.setSenderHardwareAddress(
+ 				request.getIface().getMacAddress().toBytes());
+ 		arpPkt.setSenderProtocolAddress(request.getIface().getIpAddress());
++        arpPkt.setTargetHardwareAddress(
++                new byte[Ethernet.DATALAYER_ADDRESS_LENGTH]);
+ 		arpPkt.setTargetProtocolAddress(request.getIpAddress());
+ 		
+ 		// Stack headers
+diff -ur a/project2/src/edu/wisc/cs/sdn/sr/Router.java b/project2/src/edu/wisc/cs/sdn/sr/Router.java
+--- a/project2/src/edu/wisc/cs/sdn/sr/Router.java	2014-10-09 13:42:57.000000000 -0500
++++ b/project2/src/edu/wisc/cs/sdn/sr/Router.java	2014-10-20 16:04:33.686638291 -0500
+@@ -252,9 +252,11 @@
+ 			{ break; }
+ 			
+ 			// Update ARP cache with contents of ARP reply
++		    int senderIp = ByteBuffer.wrap(
++				    arpPacket.getSenderProtocolAddress()).getInt();
+ 			ArpRequest request = this.arpCache.insert(
+-					new MACAddress(arpPacket.getTargetHardwareAddress()),
+-					targetIp);
++					new MACAddress(arpPacket.getSenderHardwareAddress()),
++					senderIp);
+ 			
+ 			// Process pending ARP request entry, if there is one
+ 			if (request != null)
