@@ -310,7 +310,8 @@ public class Router
 
     /**
      * Handle an IP packet received on a specific interface.
-     * @param etherPacket the complete ARP packet that was received
+     * @param etherPacket the complete ARP p
+        byteacket that was received
      * @param inIface the interface on which the packet was received
      */
     private void handleIPPacket(Ethernet etherPacket, Iface inIface)
@@ -324,11 +325,20 @@ public class Router
 
         IPv4 ipPacket = (IPv4)etherPacket.getPayload();
         int targetIP = ipPacket.getDestinationAddress();
-
-        if(targetIP == inIface.getIpAddress())
+        boolean isOnInterface = false;
+        
+        // Check if this packet is on one of our interfaces
+        for( Map.Entry<String, Iface> interfaceEntry : getInterfaces().entrySet() ) {
+        	if( targetIP == interfaceEntry.getValue().getIpAddress() ) {
+        		isOnInterface = true;
+        		break;
+        	}
+        }
+        
+        if( isOnInterface )
         {
             //congratulations, this packet has arrived at its destination!
-            System.out.println( "Packet arrived on destination");
+            System.out.println( "Packet sees the interface");
             byte ipProtocol = ipPacket.getProtocol();
             int port;
             switch(ipProtocol)
