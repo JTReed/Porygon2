@@ -5,13 +5,11 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
+import com.sun.corba.se.impl.protocol.giopmsgheaders.TargetAddress;
+
 import edu.wisc.cs.sdn.sr.vns.VNSComm;
 
-import net.floodlightcontroller.packet.ARP;
-import net.floodlightcontroller.packet.Ethernet;
-import net.floodlightcontroller.packet.ICMP;
-import net.floodlightcontroller.packet.IPv4;
-import net.floodlightcontroller.packet.UDP;
+import net.floodlightcontroller.packet.*;
 import net.floodlightcontroller.util.MACAddress;
 
 /**
@@ -245,6 +243,20 @@ public class Router
 +	                                         */
 		
 		/********************************************************************/
+        if(etherPacket.getEtherType() == Ethernet.TYPE_ARP)
+        {
+            System.out.println( "received ARP packet, calling handleArpPacket()" );
+            handleArpPacket(etherPacket, inIface);
+        }
+        else if( etherPacket.getEtherType() == Ethernet.TYPE_IPv4)
+        {
+            System.out.println( "received IP packet, calling calling handleIpPacket()" );
+            handleIPPacket(etherPacket, inIface);
+        }
+        else
+        {
+            System.out.println( "packet is neither ARP nor IP");
+        }
 	}
 
 	/**
@@ -255,6 +267,7 @@ public class Router
 	private void handleArpPacket(Ethernet etherPacket, Iface inIface)
 	{
 		// Make sure it's an ARP packet
+        System.out.println( "handling ARP packet" );
 		if (etherPacket.getEtherType() != Ethernet.TYPE_ARP)
 		{ return; }
 		
@@ -294,4 +307,106 @@ public class Router
 			break;
 		}
 	}
+
+    /**
+     * Handle an IP packet received on a specific interface.
+     * @param etherPacket the complete ARP p
+        byteacket that was received
+     * @param inIface the interface on which the packet was received
+     */
+    private void handleIPPacket(Ethernet etherPacket, Iface inIface)
+    {
+        //Make sure it's an IP Packet
+        if(etherPacket.getEtherType() != Ethernet.TYPE_IPv4)
+        {
+            System.out.println( "Packet is not IPv4" );
+            return;
+        }
+
+        IPv4 ipPacket = (IPv4)etherPacket.getPayload();
+        int targetIP = ipPacket.getDestinationAddress();
+        boolean isOnInterface = false;
+        
+        // Check if this packet is on one of our interfaces
+        for( Map.Entry<String, Iface> interfaceEntry : getInterfaces().entrySet() ) {
+        	if( targetIP == interfaceEntry.getValue().getIpAddress() ) {
+        		isOnInterface = true;
+        		break;
+        	}
+        }
+        
+        if( isOnInterface )
+        {
+            //congratulations, this packet has arrived at its destination!
+            System.out.println( "Packet sees the interface");
+            byte ipProtocol = ipPacket.getProtocol();
+            int port;
+            switch(ipProtocol)
+            {
+                case IPv4.PROTOCOL_ICMP:
+                    System.out.println( "ICMP packet received" );
+
+                    ICMP icmpPacket = (ICMP)ipPacket.getPayload();
+                    //TODO check if checksum is valid!
+                    if( icmpPacket.hasGoodChecksum() ) 
+                    {
+                    	System.out.println( "icmp checksum is a go" );
+                    }
+                    else
+                    {
+                    	System.out.println( "icmp checksums do not match - something messed up" );
+                    }
+
+                    break;
+                case IPv4.PROTOCOL_TCP:
+                    TCP tcpPacket = (TCP)ipPacket.getPayload();
+                    port = tcpPacket.getDestinationPort();
+
+                    System.out.println( "TCP packet received on port " + port );
+                    System.out.println( "TCP ERROR: ICMP port unreachable" );
+                    break;
+                case IPv4.PROTOCOL_UDP:
+                    UDP udpPacket = (UDP)ipPacket.getPayload();
+                    port = udpPacket.getDestinationPort();
+
+                    System.out.println( "UDP packet received on port" + port );
+                    
+                    if(port != 520) {
+                        //TODO: port unreachable
+                        System.out.println( "UDP ERROR: ICMP port unreachable" );
+                    }
+                    else {
+                        //TODO: do stuff
+                    	System.out.println( "UDP packet on correct port" );
+                    }
+
+                    break;
+                default:
+                    System.out.println( "Packet not ICMP, TCP, or UDP - Ignored" );
+                    break;
+            }
+        }
+        else {
+        	System.out.println( "Not target location, arrived on: " + inIface.getIpAddress() + ", target: " + targetIP );
+        	
+        	if( !ipPacket.hasGoodChecksum() ) {
+        		System.out.println( "Checksum does not match" );
+        		return;
+        	}
+        	
+        	//TODO: decrement TTL by 1
+        	ipPacket.setTtl( (byte)( ipPacket.getTtl() - 1 ) );
+        	
+        	//TODO: Find out which entry in the routing table has the longest prefix match with the destination IP address.
+        	
+        	/*TODO: Check the ARP cache for the next-hop MAC address corresponding to the next-hop IP. 
+        	 * If it's there, send the packet. Otherwise, call waitForArp(...) function in the ARPCache 
+        	 * class to send an ARP request for the next-hop IP, and add the packet to the queue of packets 
+        	 * waiting on this ARP request.
+        	 * 
+        	 */
+        	
+        	
+        }
+    }
 }

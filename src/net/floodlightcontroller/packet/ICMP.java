@@ -122,6 +122,15 @@ public class ICMP extends BasePacket {
         }
         return data;
     }
+    
+    /**
+     * 
+     * Casts the packet to an IP packet and checks the checksum
+     */
+    public boolean hasGoodChecksum() {
+    	IPv4 ipPacket = (IPv4)this.getPayload();
+    	return ipPacket.hasGoodChecksum();
+    }
 
     /* (non-Javadoc)
      * @see java.lang.Object#hashCode()
