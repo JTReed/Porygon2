@@ -195,6 +195,21 @@ public class Router
 	public Iface getInterface(String ifaceName)
 	{ return this.interfaces.get(ifaceName); }
 	
+	public boolean checkChecksum( IPv4 packet)
+	{
+		if( packet.getProtocol() == IPv4.PROTOCOL_ICMP ) {
+			short checksum = packet.getChecksum();
+			packet.setChecksum( (short)0 );
+			packet.serialize();
+			return ( checksum == packet.getChecksum() );
+		}
+		
+		short checksum = packet.getChecksum();
+		packet.setChecksum( (short)0 );
+		packet.serialize();
+		return ( checksum == packet.getChecksum() );
+	}
+	
 	/**
 	 * Send an Ethernet packet out a specific interface.
 	 * @param etherPacket an Ethernet packet with all fields, encapsulated
@@ -348,7 +363,7 @@ public class Router
 
                     ICMP icmpPacket = (ICMP)ipPacket.getPayload();
                     //TODO check if checksum is valid!
-                    if( icmpPacket.hasGoodChecksum() ) 
+                    if( checkChecksum( ipPacket ) ) 
                     {
                     	System.out.println( "icmp checksum is a go" );
                     }
@@ -387,9 +402,9 @@ public class Router
             }
         }
         else {
-        	System.out.println( "Not target location, arrived on: " + inIface.getIpAddress() + ", target: " + targetIP );
+        	System.out.println( "target not found on interfaces, arrived on: " + inIface.getIpAddress() + ", target: " + targetIP );
         	
-        	if( !ipPacket.hasGoodChecksum() ) {
+        	if( !checkChecksum( ipPacket ) ) {
         		System.out.println( "Checksum does not match" );
         		return;
         	}
