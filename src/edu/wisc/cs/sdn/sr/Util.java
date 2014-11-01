@@ -1,8 +1,13 @@
 package edu.wisc.cs.sdn.sr;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+
+import net.floodlightcontroller.packet.IPacket;
 
 /**
  * @author Aaron Gember-Jacobson
@@ -38,5 +43,28 @@ public class Util
 		{ return ByteBuffer.wrap(InetAddress.getByName(ip).getAddress()).getInt(); }
 		catch (UnknownHostException e) 
 		{ return 0; }
+	}
+	
+	// converts any object into a byte[]
+	// from http://www.java2s.com/Code/Java/File-Input-Output/Convertobjecttobytearrayandconvertbytearraytoobject.htm
+	public static byte[] toByteArray(Object obj) throws IOException {
+		byte[] bytes = null;
+		ByteArrayOutputStream bos = null;
+		ObjectOutputStream oos = null;
+		try {
+			bos = new ByteArrayOutputStream();
+			oos = new ObjectOutputStream(bos);
+			oos.writeObject(obj);
+			oos.flush();
+			bytes = bos.toByteArray();
+		} finally {
+			if (oos != null) {
+				oos.close();
+			}
+			if (bos != null) {
+				bos.close();
+			}
+		}
+		return bytes;
 	}
 }
