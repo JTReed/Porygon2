@@ -283,12 +283,10 @@ public class Router {
 
 		/********************************************************************/
 		if (etherPacket.getEtherType() == Ethernet.TYPE_ARP) {
-			System.out
-					.println("received ARP packet, calling handleArpPacket()");
+			System.out.println("received ARP packet, calling handleArpPacket()");
 			handleArpPacket(etherPacket, inIface);
 		} else if (etherPacket.getEtherType() == Ethernet.TYPE_IPv4) {
-			System.out
-					.println("received IP packet, calling calling handleIpPacket()");
+			System.out.println("received IP packet, calling calling handleIpPacket()");
 			handleIPPacket(etherPacket, inIface);
 		} else {
 			System.out.println("packet is neither ARP nor IP");
@@ -312,8 +310,7 @@ public class Router {
 
 		// Get ARP header
 		ARP arpPacket = (ARP) etherPacket.getPayload();
-		int targetIp = ByteBuffer.wrap(arpPacket.getTargetProtocolAddress())
-				.getInt();
+		int targetIp = ByteBuffer.wrap(arpPacket.getTargetProtocolAddress()).getInt();
 
 		switch (arpPacket.getOpCode()) {
 		case ARP.OP_REQUEST:
@@ -330,8 +327,7 @@ public class Router {
 
 			// Update ARP cache with contents of ARP reply
 			ArpRequest request = this.arpCache.insert(
-					new MACAddress(arpPacket.getTargetHardwareAddress()),
-					targetIp);
+					new MACAddress(arpPacket.getTargetHardwareAddress()), targetIp);
 
 			// Process pending ARP request entry, if there is one
 			if (request != null) {
@@ -396,7 +392,7 @@ public class Router {
 					System.out.println("icmp checksum is a go");
 				} else {
 					System.out
-							.println("icmp checksums do not match - something messed up");
+					.println("icmp checksums do not match - something messed up");
 				}
 
 				break;
@@ -426,19 +422,35 @@ public class Router {
 				System.out.println("Packet not ICMP, TCP, or UDP - Ignored");
 				break;
 			}
-		} else {
+		}
+		else 
+		{
 			// TODO: Find out which entry in the routing table has the longest
 			// prefix match with the destination IP address.
-			
+
 			List<RouteTableEntry> routeTableEntries = routeTable.getEntries();
-			
+
+			RouteTableEntry destRouteEntry = null;
+			int longestMask = -(Integer.MAX_VALUE);
+			ArpEntry arpEntry = null;
+			Iface iFace = null;
+
 			for( RouteTableEntry entry : routeTableEntries) {
 				if( ( targetAddress & entry.getMaskAddress() ) == entry.getDestinationAddress() ) {
-					System.out.println( "found destination in routing table, it's " + Util.intToDottedDecimal( entry.getDestinationAddress() ) );
-					break;
+					// if we have more than one match, we want the most SPECIFIC one (longest mask)
+					if( entry.getMaskAddress() > longestMask ) {
+						System.out.println( "set a new destination route: " + Util.intToDottedDecimal( entry.getDestinationAddress() ) );
+						longestMask = entry.getMaskAddress();
+						destRouteEntry = entry;
+					}
 				}
 			}
-			
+
+			if( destRouteEntry == null) {
+				System.out.println( "not found in route table" );
+				return;
+			}
+
 			/*
 			 * TODO: Check the ARP cache for the next-hop MAC address corresponding
 			 * to the next-hop IP. If it's there, send the packet. Otherwise, call
@@ -447,11 +459,34 @@ public class Router {
 			 * waiting on this ARP request.
 			 */
 
+			//Case where we cannot resolve MAC address
+			arpEntry = arpCache.lookup(destRouteEntry.getDestinationAddress());
+			if (arpEntry == null){
+				System.out.println("Destination not found in ARP cache.");
+				// wait for ARP
+
+				arpCache.waitForArp(etherPacket, inIface, destRouteEntry.getDestinationAddress());
+				System.out.println("We're waiting for ARP");
+				return;
+			}
+
+			//case where we CAN resolve MAC address
+			else {
+				//set dest MAC address
+				etherPacket.setDestinationMACAddress(arpEntry.getMac().toString());
+				//send packet to destination
+				iFace = new Iface(destRouteEntry.getInterface());
+				iFace.setMacAddress(arpEntry.getMac());
+				iFace.setIpAddress(destRouteEntry.getDestinationAddress());
+
+				boolean sent = sendPacket(etherPacket, iFace);
+
+				if (!sent){
+					//TODO: sending packet failed
+					//send ICMP
+					System.out.println("Sending packet failed. Need ICMP packet");
+				}
+			}
 		}
-	}
-
-	private ICMP createICMPEchoResponse(IPv4 ipPacket) {
-
-		return new ICMP();
 	}
 }
