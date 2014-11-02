@@ -115,27 +115,18 @@ public class RIP implements Runnable
 		 */
         /*********************************************************************/
         /* TODO: Add other initialization code as necessary
-+		   if not a static static routing table...
-+		   	populates the route table with entries
-+		   	for the subnets that are directly reachable
-+		   	via the router's interfaces, starts a
-+		   	thread for period RIP tasks, and performs
-+		   	other initialization for RIP as necessary
-+		*/
+		   if not a static static routing table...
+		   	populates the route table with entries
+		   	for the subnets that are directly reachable
+		   	via the router's interfaces, starts a
+		   	thread for period RIP tasks, and performs
+		   	other initialization for RIP as necessary
+		*/
 
         /*********************************************************************/
-		
-		//TODO	
-		//iterate through every interface for this router and send RIP request
-		for (Map.Entry<String, Iface> interfaceEntry : this.router.getInterfaces().entrySet()) {
-			
-			
-			//add to list of RouteTableEntries
-			//send RIP packet
-			
-			
-		}
-		
+		Iface iFace = null;
+		byte command = RIPv2.COMMAND_REQUEST;
+		sendRipPacket( null, iFace, command );
 		
 	}
 
@@ -159,12 +150,113 @@ public class RIP implements Runnable
 
         /*********************************************************************/
         /* TODO: Handle RIP packet
-+			If NOT a static routing table
-+			Processes a RIP packet that is received by the router
-+
-+		*/
+			If NOT a static routing table
+			Processes a RIP packet that is received by the router
 
+		*/
         /*********************************************************************/
+		
+		switch( ripPacket.getCommand() ) {
+			case RIPv2.COMMAND_REQUEST:
+				// Someone is asking me for my info - build a response packet and send it
+				sendRipPacket(etherPacket, inIface, RIPv2.COMMAND_RESPONSE );
+				
+				break;
+			case RIPv2.COMMAND_RESPONSE:
+				// I wanted to know someone's info, I got an answer back
+				break;
+		}
+		
+	}
+	
+	public void sendRipPacket( Ethernet etherPacket, Iface inIface, byte command ) {
+		
+		Iterator<Map.Entry <String, Iface> > interfaces = null; 
+		Iface currentInterface = null;
+		boolean isLastIface = false;
+		
+		if( inIface == null ) {
+			// not a response to a request, we need to broadcast to all other routers
+			interfaces = router.getInterfaces().entrySet().iterator();	
+		}
+		
+		while( !isLastIface ) {			
+			if( inIface == null ) {
+				// need to iterate through and send on each interface on the router
+				if( interfaces.hasNext() ) {
+					currentInterface = interfaces.next().getValue();
+					
+					// take care of it if it's the last one
+					if( !interfaces.hasNext() ) {
+						isLastIface = true;
+					}
+				}
+			}
+			else {
+				currentInterface = inIface;
+				isLastIface = true;
+			}	
+			
+			Ethernet newEtherPacket = new Ethernet();
+			IPv4 ipPacket = new IPv4();
+			UDP udpPacket = new UDP();
+			RIPv2 ripPacket = new RIPv2();
+			
+			// Construct ethernet header
+			newEtherPacket.setEtherType( Ethernet.TYPE_IPv4 );
+			newEtherPacket.setSourceMACAddress( currentInterface.getMacAddress().toBytes() );
+			if( inIface != null ) {
+				newEtherPacket.setDestinationMACAddress( etherPacket.getSourceMACAddress() );				
+			}
+			else {
+				newEtherPacket.setDestinationMACAddress( BROADCAST_MAC );
+			}
+			etherPacket.resetChecksum();
+			
+			// construct IP header
+			ipPacket.setSourceAddress( currentInterface.getIpAddress() );
+			if( inIface != null ) {
+				ipPacket.setDestinationAddress( ((IPv4)etherPacket.getPayload()).getSourceAddress() );
+			}
+			else {
+				ipPacket.setDestinationAddress( RIP_MULTICAST_IP );
+			}
+			ipPacket.setTtl( (byte)64 );
+			ipPacket.setProtocol( IPv4.PROTOCOL_UDP );
+			ipPacket.resetChecksum();
+			
+			// construct UDP header
+			udpPacket.setSourcePort( (short)520 );
+			udpPacket.setDestinationPort( (short)520 );
+			udpPacket.resetChecksum();
+			
+			// construct RIP header
+			ripPacket.setCommand( command );
+			for( RouteTableEntry entry : router.getRouteTable().getEntries() ) {
+				/* SPLIT HORIZON: If the entry's destination is where we are sending the packet,
+				 * we don't want to send it because that's dumb
+				 * */
+				
+				if( entry.getDestinationAddress() != ipPacket.getDestinationAddress() ) {
+					// when reading the metric, need to +1 to account for current hop
+					RIPv2Entry ripEntry = new RIPv2Entry( entry.getDestinationAddress(), entry.getMaskAddress(), entry.getCost() );
+					ripEntry.setNextHopAddress( currentInterface.getIpAddress() );
+					ripPacket.addEntry( ripEntry );
+				}
+			}
+			ripPacket.resetChecksum();
+			
+			// nest within each other
+			ripPacket.serialize();
+			udpPacket.setPayload( ripPacket );
+			udpPacket.serialize();
+			ipPacket.setPayload( udpPacket );
+			ipPacket.serialize();
+			newEtherPacket.setPayload( ipPacket );
+			newEtherPacket.serialize();
+			
+			router.nextHop( newEtherPacket, currentInterface );
+		}
 	}
 
     //TODO: FOR CONTROL PLANE
@@ -176,10 +268,10 @@ public class RIP implements Runnable
     {
         /*********************************************************************/
         /* TODO: Send period updates and time out route table entries
-+			if no static routing table provided
-+			send updates to neighbors
-+			time out route table entries that neighbors last advertised > 30 secds ago
-+		*/
+			if no static routing table provided
+			send updates to neighbors
+			time out route table entries that neighbors last advertised > 30 secds ago
+		*/
 
         /*********************************************************************/
 		

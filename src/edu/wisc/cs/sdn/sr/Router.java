@@ -293,38 +293,38 @@ public class Router {
 				.getInt();
 
 		switch (arpPacket.getOpCode()) {
-		case ARP.OP_REQUEST:
-			// Check if request is for one of my interfaces
-			if (targetIp == inIface.getIpAddress()) {
-				this.arpCache.sendArpReply(etherPacket, inIface);
-			}
-			break;
-		case ARP.OP_REPLY:
-			// Check if reply is for one of my interfaces
-			if (targetIp != inIface.getIpAddress()) {
+			case ARP.OP_REQUEST:
+				// Check if request is for one of my interfaces
+				if (targetIp == inIface.getIpAddress()) {
+					this.arpCache.sendArpReply(etherPacket, inIface);
+				}
+				break;
+			case ARP.OP_REPLY:
+				// Check if reply is for one of my interfaces
+				if (targetIp != inIface.getIpAddress()) {
+					break;
+				}
+	
+				// Update ARP cache with contents of ARP reply
+				int senderIp = ByteBuffer
+						.wrap(arpPacket.getSenderProtocolAddress()).getInt();
+				ArpRequest request = this.arpCache.insert(
+						new MACAddress(arpPacket.getSenderHardwareAddress()),
+						senderIp);
+	
+				// Process pending ARP request entry, if there is one
+				if (request != null) {
+					for (Ethernet packet : request.getWaitingPackets()) {
+						if (nextHop(packet, inIface)) {
+							arpCache.removeFromRequests(request);
+						}
+					}
+				} else {
+					System.out.println("request is null");
+				}
 				break;
 			}
-
-			// Update ARP cache with contents of ARP reply
-			int senderIp = ByteBuffer
-					.wrap(arpPacket.getSenderProtocolAddress()).getInt();
-			ArpRequest request = this.arpCache.insert(
-					new MACAddress(arpPacket.getSenderHardwareAddress()),
-					senderIp);
-
-			// Process pending ARP request entry, if there is one
-			if (request != null) {
-				for (Ethernet packet : request.getWaitingPackets()) {
-					if (nextHop(packet, inIface)) {
-						arpCache.removeFromRequests(request);
-					}
-				}
-			} else {
-				System.out.println("request is null");
-			}
-			break;
 		}
-	}
 
 	/**
 	 * Handle an IP packet received on a specific interface.
@@ -385,8 +385,8 @@ public class Router {
 							ICMP.CODE_PORT_UNREACHABLE);
 				} else {
 					// TODO: do stuff, RIP STUFF
-					System.out
-							.println("UDP packet on correct port - TODO handle with RIP");
+					System.out.println("Sending packet to RIP");
+					rip.handlePacket( etherPacket, inIface );
 				}
 
 				break;
@@ -446,7 +446,7 @@ public class Router {
 		IPv4 ipPacket = new IPv4();
 		ipPacket.setSourceAddress(inIface.getIpAddress());
 		ipPacket.setDestinationAddress(originalIpPacket.getSourceAddress());
-		ipPacket.setTtl((byte) 255); // MAx to ensure it gets back
+		ipPacket.setTtl((byte) 64); // MAx to ensure it gets back
 		ipPacket.setProtocol(IPv4.PROTOCOL_ICMP);
 		ipPacket.setChecksum((short) 0);
 
