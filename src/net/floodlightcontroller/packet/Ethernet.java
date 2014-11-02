@@ -426,13 +426,16 @@ public class Ethernet extends BasePacket {
             sb.append("\nnw_proto: ");
             sb.append(p.getProtocol());
 
+            pkt = (IPacket)p.getPayload();
             if (pkt instanceof TCP) {
+            	sb.append("\ntcp");
                 sb.append("\ntp_src: ");
                 sb.append(((TCP) pkt).getSourcePort());
                 sb.append("\ntp_dst: ");
                 sb.append(((TCP) pkt).getDestinationPort());
 
             } else if (pkt instanceof UDP) {
+            	sb.append("\nudp");
                 sb.append("\ntp_src: ");
                 sb.append(((UDP) pkt).getSourcePort());
                 sb.append("\ntp_dst: ");
