@@ -223,7 +223,7 @@ public class Router {
 
 	public boolean checkChecksum(IPv4 packet) {
 		if (packet.getProtocol() == IPv4.PROTOCOL_ICMP) {
-			ICMP icmpPacket = (ICMP)packet.getPayload();
+			ICMP icmpPacket = (ICMP) packet.getPayload();
 			short checksum = icmpPacket.getChecksum();
 			icmpPacket.setChecksum((short) 0);
 			icmpPacket.serialize();
@@ -263,14 +263,10 @@ public class Router {
 				+ etherPacket.toString().replace("\n", "\n\t"));
 
 		/********************************************************************/
-		
+
 		if (etherPacket.getEtherType() == Ethernet.TYPE_ARP) {
-			System.out
-					.println("received ARP packet, calling handleArpPacket()");
 			handleArpPacket(etherPacket, inIface);
 		} else if (etherPacket.getEtherType() == Ethernet.TYPE_IPv4) {
-			System.out
-					.println("received IP packet, calling calling handleIpPacket()");
 			handleIPPacket(etherPacket, inIface);
 		} else {
 			System.out.println("packet is neither ARP nor IP");
@@ -287,47 +283,46 @@ public class Router {
 	 */
 	private void handleArpPacket(Ethernet etherPacket, Iface inIface) {
 		// Make sure it's an ARP packet
-		System.out.println("handling ARP packet");
 		if (etherPacket.getEtherType() != Ethernet.TYPE_ARP) {
 			return;
 		}
 
 		// Get ARP header
 		ARP arpPacket = (ARP) etherPacket.getPayload();
-		int targetIp = ByteBuffer.wrap(arpPacket.getTargetProtocolAddress()).getInt();
+		int targetIp = ByteBuffer.wrap(arpPacket.getTargetProtocolAddress())
+				.getInt();
 
 		switch (arpPacket.getOpCode()) {
-			case ARP.OP_REQUEST:
-				System.out.println( "handling ARP request" );
-				// Check if request is for one of my interfaces
-				if (targetIp == inIface.getIpAddress()) {
-					this.arpCache.sendArpReply(etherPacket, inIface);
-				}
+		case ARP.OP_REQUEST:
+			// Check if request is for one of my interfaces
+			if (targetIp == inIface.getIpAddress()) {
+				this.arpCache.sendArpReply(etherPacket, inIface);
+			}
+			break;
+		case ARP.OP_REPLY:
+			// Check if reply is for one of my interfaces
+			if (targetIp != inIface.getIpAddress()) {
 				break;
-			case ARP.OP_REPLY:
-				System.out.println("handling ARP Reply");
-				// Check if reply is for one of my interfaces
-				if (targetIp != inIface.getIpAddress()) {
-					break;
-				}
-	
-				
-				// Update ARP cache with contents of ARP reply
-				int senderIp = ByteBuffer.wrap( arpPacket.getSenderProtocolAddress()).getInt();
-				ArpRequest request = this.arpCache.insert(new MACAddress(arpPacket.getSenderHardwareAddress()), senderIp);
-				
-				// Process pending ARP request entry, if there is one
-				if (request != null) {
-					for (Ethernet packet : request.getWaitingPackets()) {
-						if (nextHop( packet, inIface )){
-							arpCache.removeFromRequests( request );
-						}
+			}
+
+			// Update ARP cache with contents of ARP reply
+			int senderIp = ByteBuffer
+					.wrap(arpPacket.getSenderProtocolAddress()).getInt();
+			ArpRequest request = this.arpCache.insert(
+					new MACAddress(arpPacket.getSenderHardwareAddress()),
+					senderIp);
+
+			// Process pending ARP request entry, if there is one
+			if (request != null) {
+				for (Ethernet packet : request.getWaitingPackets()) {
+					if (nextHop(packet, inIface)) {
+						arpCache.removeFromRequests(request);
 					}
 				}
-				else {
-					System.out.println( "request is null" );
-				}
-				break;
+			} else {
+				System.out.println("request is null");
+			}
+			break;
 		}
 	}
 
@@ -344,23 +339,10 @@ public class Router {
 		int targetAddress = ipPacket.getDestinationAddress();
 		boolean isOnInterface = false;
 
-		if (!checkChecksum(ipPacket)) {
-			System.out.println("Checksum does not match");
-			return;
-		}
-
-		// If TTL is 0, then we need to panic!
-		ipPacket.setTtl((byte) (ipPacket.getTtl() - 1));
-		if ((int) ipPacket.getTtl() == 0) {
-			// outatime!
-			System.out.println("TTL is 0");
-			// TODO: ICMP.TYPE_TIME_EXCEEDED
-			return; 
-		}
-
 		// Check if this packet is on one of our interfaces
-		for (Map.Entry<String, Iface> interfaceEntry : getInterfaces().entrySet()) {
-			if ( targetAddress == interfaceEntry.getValue().getIpAddress()) {
+		for (Map.Entry<String, Iface> interfaceEntry : getInterfaces()
+				.entrySet()) {
+			if (targetAddress == interfaceEntry.getValue().getIpAddress()) {
 				isOnInterface = true;
 				break;
 			}
@@ -368,86 +350,105 @@ public class Router {
 
 		if (isOnInterface) {
 			// congratulations, this packet has arrived at its destination!
-			System.out.println("Packet sees the interface");
 			byte ipProtocol = ipPacket.getProtocol();
-			int port;
+			short port;
 			switch (ipProtocol) {
 			case IPv4.PROTOCOL_ICMP:
-				System.out.println("ICMP packet received");
 
 				ICMP icmpPacket = (ICMP) ipPacket.getPayload();
-				if (checkChecksum(ipPacket)) {
-					System.out.println("icmp checksum is a go");
-				} else {
-					System.out.println("icmp checksums do not match - something messed up");
+				if (!checkChecksum(ipPacket)) {
+					System.out.println("icmp checksums do not match");
+					return;
 				}
 				// ECHO REPLY
-				sendICMPReply( etherPacket, inIface, ICMP.TYPE_ECHO_REQUEST, ICMP.CODE_ECHO_REQUEST );
+				System.out.println("Sending echo reply");
+				sendICMPReply(etherPacket, inIface, ICMP.TYPE_ECHO_REQUEST,
+						ICMP.CODE_ECHO_REQUEST);
 				break;
 			case IPv4.PROTOCOL_TCP:
 				TCP tcpPacket = (TCP) ipPacket.getPayload();
 				port = tcpPacket.getDestinationPort();
 
-				System.out.println("TCP ERROR: ICMP port unreachable");
+				System.out.println("TCP ERROR: TCP port unreachable");
 				// PORT UNREACHABLE
-				sendICMPReply( etherPacket, inIface, ICMP.TYPE_UNREACHABLE, ICMP.CODE_PORT_UNREACHABLE );
+				sendICMPReply(etherPacket, inIface, ICMP.TYPE_UNREACHABLE,
+						ICMP.CODE_PORT_UNREACHABLE);
 				break;
 			case IPv4.PROTOCOL_UDP:
 				UDP udpPacket = (UDP) ipPacket.getPayload();
 				port = udpPacket.getDestinationPort();
 
-				System.out.println("UDP packet received on port" + port);
-
-				if (port != 520) {
+				if (port != (short) 520) {
 					System.out.println("UDP ERROR: UDP port unreachable");
 					// PORT UNREACHABLE
-					sendICMPReply( etherPacket, inIface, ICMP.TYPE_UNREACHABLE, ICMP.CODE_PORT_UNREACHABLE );
+					sendICMPReply(etherPacket, inIface, ICMP.TYPE_UNREACHABLE,
+							ICMP.CODE_PORT_UNREACHABLE);
 				} else {
 					// TODO: do stuff, RIP STUFF
-					System.out.println("UDP packet on correct port");
+					System.out
+							.println("UDP packet on correct port - TODO handle with RIP");
 				}
 
 				break;
 			default:
-				System.out.println("Packet not ICMP, TCP, or UDP - Ignored");
+				System.out.println("IP Packet not ICMP, TCP, or UDP - Ignored");
 				break;
 			}
-		} 
-		else {
+		} else {
 			// not intended for one of our interfaces
-			nextHop( etherPacket, inIface );
+			if (!checkChecksum(ipPacket)) {
+				System.out.println("Checksum does not match");
+				return;
+			}
+			
+			// If TTL is 0, then we need to panic!
+			ipPacket.setTtl((byte) (ipPacket.getTtl() - 1));
+			if ( ipPacket.getTtl() == 0) {
+				System.out.println("ERROR: TTL Time Exceeded" );
+				sendICMPReply(etherPacket, inIface, ICMP.TYPE_TIME_EXCEEDED,
+						ICMP.CODE_TIME_EXCEEDED);
+				return;
+			}
+			ipPacket.resetChecksum();
+			ipPacket.serialize();
+			
+			nextHop(etherPacket, inIface);
 		}
 	}
 
 	/**
-	 * Create and send the appropriate ICMP Reply based on type and code arguments
+	 * Create and send the appropriate ICMP Reply based on type and code
+	 * arguments
+	 * 
 	 * @param originalPacket
 	 * @param inIface
 	 * @param type
 	 * @param code
 	 */
-	public void sendICMPReply(Ethernet originalPacket, Iface inIface, byte type, byte code) {
-		
-		IPv4 originalIpPacket = (IPv4)originalPacket.getPayload();
+	public void sendICMPReply(Ethernet originalPacket, Iface inIface,
+			byte type, byte code) {
+
+		IPv4 originalIpPacket = (IPv4) originalPacket.getPayload();
 		ICMP originalIcmpPacket = null;
-				
-		if(type == ICMP.TYPE_ECHO_REQUEST) {
-				originalIcmpPacket = (ICMP)originalIpPacket.getPayload();
+
+		if (type == ICMP.TYPE_ECHO_REQUEST) {
+			originalIcmpPacket = (ICMP) originalIpPacket.getPayload();
 		}
 
 		// Populate Ethernet header
 		Ethernet etherPacket = new Ethernet();
-		etherPacket.setSourceMACAddress( inIface.getMacAddress().toBytes() );
-		etherPacket.setDestinationMACAddress( originalPacket.getSourceMACAddress() );
-		etherPacket.setEtherType( Ethernet.TYPE_IPv4 );
+		etherPacket.setSourceMACAddress(inIface.getMacAddress().toBytes());
+		etherPacket.setDestinationMACAddress(originalPacket
+				.getSourceMACAddress());
+		etherPacket.setEtherType(Ethernet.TYPE_IPv4);
 
 		// Populate IPv4 header
 		IPv4 ipPacket = new IPv4();
-		ipPacket.setSourceAddress( inIface.getIpAddress() );
-		ipPacket.setDestinationAddress( originalIpPacket.getSourceAddress() );
+		ipPacket.setSourceAddress(inIface.getIpAddress());
+		ipPacket.setDestinationAddress(originalIpPacket.getSourceAddress());
 		ipPacket.setTtl((byte) 255); // MAx to ensure it gets back
 		ipPacket.setProtocol(IPv4.PROTOCOL_ICMP);
-		ipPacket.setChecksum( (short)0 );
+		ipPacket.setChecksum((short) 0);
 
 		// Populate ICMP header
 		ICMP icmpPacket = new ICMP();
@@ -461,11 +462,11 @@ public class Router {
 		} else { // It's unreachable error or time exceeded
 			// Populate Data header
 			Data dataPacket = new Data();
-			byte[] ipInfo = new byte[28];
-			ByteBuffer ipBuffer = ByteBuffer.wrap( ipPacket.serialize() );
+			ByteBuffer buf = ByteBuffer.allocate( 32 );
 			
-			ipBuffer.get( ipInfo, 0, ( ipBuffer.capacity() < 28 ) ? ipBuffer.capacity() : 28 );
-			dataPacket.setData( ipInfo );
+			buf.putInt( 0 );
+			buf.put( originalIpPacket.serialize(), 0, 28 );
+			dataPacket.setData( buf.array() );
 
 			// stack within ICMP payload
 			icmpPacket.setPayload(dataPacket);
@@ -477,46 +478,49 @@ public class Router {
 		etherPacket.setPayload(ipPacket);
 
 		// Send ICMP reply
-		if( !sendPacket( etherPacket, inIface ) ) { // send on iface we received on? 
-			System.out.println( "ICMP reply could not send" );
-		}
-		else {
-			//System.out.println( "ICMP Reply sent successfuly :)");
-			System.out.println( etherPacket.toString() + "\n" );
+		if (!sendPacket(etherPacket, inIface)) { 
+			System.out.println("ICMP reply could not send");
+		} else {
+			// System.out.println( "ICMP Reply sent successfuly :)");
+			// System.out.println( etherPacket.toString() + "\n" );
 		}
 	}
-	
+
 	/**
 	 * Determines and sends packet to next hop location
+	 * 
 	 * @param etherPacket
 	 */
-	public boolean nextHop( Ethernet etherPacket, Iface inIface ) {
-		
+	public boolean nextHop(Ethernet etherPacket, Iface inIface) {
+
 		boolean success = false;
-		
-		RouteTableEntry destRouteEntry = findBestRoute( (IPv4)etherPacket.getPayload() );
-		if( destRouteEntry == null ) {
+
+		RouteTableEntry destRouteEntry = findBestRoute((IPv4) etherPacket
+				.getPayload());
+		if (destRouteEntry == null) {
 			System.out.println("ERROR: Net unreachable");
-			// TODO: ADD ICMP ICMP.TYPE_UNREACHABLE_ERROR
-			sendICMPReply(etherPacket, inIface, ICMP.TYPE_UNREACHABLE, ICMP.CODE_NET_UNREACHABLE );
+			sendICMPReply(etherPacket, inIface, ICMP.TYPE_UNREACHABLE,
+					ICMP.CODE_NET_UNREACHABLE);
 			return false;
 		}
-		
-		ArpEntry arpMapping = lookupMacInCache( destRouteEntry, etherPacket );
-		if( arpMapping != null) {
-			sendResolvedPacket(etherPacket, destRouteEntry, arpMapping );
+
+		ArpEntry arpMapping = lookupMacInCache(destRouteEntry, etherPacket);
+		if (arpMapping != null) {
+			sendResolvedPacket(etherPacket, destRouteEntry, arpMapping);
 			success = true;
 		}
 		return success;
 	}
-	
+
 	/**
 	 * Finds the closest matching route table entry to the ip packet
+	 * 
 	 * @param ipPacket
-	 * @return The routing table entry that closest matches the destination, null if it does not exist
+	 * @return The routing table entry that closest matches the destination,
+	 *         null if it does not exist
 	 */
-	public RouteTableEntry findBestRoute( IPv4 ipPacket ) {
-		
+	public RouteTableEntry findBestRoute(IPv4 ipPacket) {
+
 		List<RouteTableEntry> routeTableEntries = routeTable.getEntries();
 		// TODO: Find out which entry in the routing table has the longest
 		// prefix match with the destination IP address.
@@ -541,50 +545,58 @@ public class Router {
 		}
 		return destRouteEntry;
 	}
-	
+
 	/**
 	 * tries to map a destination IP address to a MAC address using the ARPCache
+	 * 
 	 * @param destRouteEntry
 	 * @param etherPacket
 	 * @return returns null if there is no mapping and WaitForArp() was called
 	 */
-	public ArpEntry lookupMacInCache(RouteTableEntry destRouteEntry, Ethernet etherPacket ) {
-		ArpEntry arpEntry = arpCache.lookup(destRouteEntry.getDestinationAddress());
-		
-		if( arpEntry == null ) {
+	public ArpEntry lookupMacInCache(RouteTableEntry destRouteEntry,
+			Ethernet etherPacket) {
+		ArpEntry arpEntry = arpCache.lookup(destRouteEntry
+				.getDestinationAddress());
+
+		if (arpEntry == null) {
 			// the Mapping was not found in the ARPCache
-			arpCache.waitForArp(etherPacket, interfaces.get( destRouteEntry.getInterface() ), destRouteEntry.getDestinationAddress() );
+			arpCache.waitForArp(etherPacket,
+					interfaces.get(destRouteEntry.getInterface()),
+					destRouteEntry.getDestinationAddress());
 			return null;
 		}
-		
+
 		return arpEntry;
 	}
-	
+
 	/**
 	 * sends the packet to its destination on the correct interface
+	 * 
 	 * @param etherPacket
 	 * @param destRouteEntry
 	 * @param arpEntry
 	 */
-	public void sendResolvedPacket( Ethernet etherPacket, RouteTableEntry destRouteEntry, ArpEntry arpEntry ) {
+	public void sendResolvedPacket(Ethernet etherPacket,
+			RouteTableEntry destRouteEntry, ArpEntry arpEntry) {
 		// set MAC addresses on outgoing packet
-		etherPacket.setSourceMACAddress( interfaces.get( destRouteEntry.getInterface() ).getMacAddress().toBytes() );
+		etherPacket.setSourceMACAddress(interfaces
+				.get(destRouteEntry.getInterface()).getMacAddress().toBytes());
 		etherPacket.setDestinationMACAddress(arpEntry.getMac().toString());
 		// send packet to destination
 		Iface outIface = new Iface(destRouteEntry.getInterface());
 		outIface.setMacAddress(arpEntry.getMac());
 		outIface.setIpAddress(destRouteEntry.getDestinationAddress());
-		
-		( (IPv4)etherPacket.getPayload() ).setChecksum( (short)0 );
 
-		if( !sendPacket(etherPacket, outIface) ) {
-			System.out.println("Could not send packet, sorry");
+		((IPv4) etherPacket.getPayload()).setChecksum((short) 0);
+
+		if (!sendPacket(etherPacket, outIface)) {
+			System.out.println("Could not send ethernet packet");
 			return;
-		}
-		else {
-			//System.out.println( "ethernet packet sent successfully :)" );
-			System.out.println( etherPacket.toString() + "\n" );
+		} else {
+			// System.out.println( "ethernet packet sent successfully :)" );
+			//System.out.println( "send ether packet" );
+			//System.out.println( etherPacket.toString() + "\n" );
 		}
 	}
-	
+
 }
