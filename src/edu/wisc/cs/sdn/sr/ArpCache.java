@@ -91,7 +91,9 @@ public class ArpCache implements Runnable
 			/*********************************************************/
 		    /* TODO: send ICMP host unreachable to the source        */ 
 		    /* address of all packets waiting on this request        */
+			//TODO: ICMP.TYPE_UNREACHABLE_ERROR
 			
+			System.out.println( "ARP request timeout" );
 			
 		    /*********************************************************/
 			
@@ -217,5 +219,18 @@ public class ArpCache implements Runnable
 		System.out.println("Send ARP reply");
 		System.out.println(arpReply.toString());
 		this.router.sendPacket(etherReply, iface);
+	}
+	
+	public void removeFromRequests( ArpRequest request ) {
+		this.requests.remove( request.getIpAddress() );
+	}
+	
+	public void printRequests() {
+		System.out.println("-----ARP requests----");
+		for(int requestIP : requests.keySet() ) {
+			ArpRequest request = requests.get(requestIP);
+			System.out.println( request.toString() );
+		}
+		System.out.println("---end ARP requests--");
 	}
 }
