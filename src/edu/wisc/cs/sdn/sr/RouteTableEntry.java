@@ -19,7 +19,27 @@ public class RouteTableEntry
 	 * the destination or gateway */
 	private String interfaceName;
 	
+	//never to exceed 16
+	private int cost;
+	private long timeStamp;
+	
 	//private int timer = 0;
+	
+	
+	
+	public RouteTableEntry(int destinationAddress, int gatewayAddress,
+			int maskAddress, String ifaceName, int cost)
+	{
+		this.destinationAddress = destinationAddress;
+		this.gatewayAddress = gatewayAddress;
+		this.maskAddress = maskAddress;
+		this.interfaceName = ifaceName;
+		//add cost of hop
+		this.cost = cost;
+		//add timeStamp of when first added
+		this.timeStamp = System.currentTimeMillis()/1000L;
+}
+
 	
 	/**
 	 * Create a new route table entry.
@@ -52,6 +72,23 @@ public class RouteTableEntry
 
     public void setGatewayAddress(int gatewayAddress)
     { this.gatewayAddress = gatewayAddress; }
+    
+    
+    public int getCost()
+    {return this.cost; }
+    
+    public void setCost(int cost)
+    {this.cost = cost; }
+    
+    public long getTimestamp()
+    { return this.timeStamp; }
+    
+    public void setTimeStamp(long timestamp)
+    { this.timeStamp = timeStamp; }
+    
+    
+    
+    
 	
 	/**
 	 * @return subnet mask 
@@ -78,7 +115,11 @@ public class RouteTableEntry
         if (gwString.length() < 8)
         { result += "\t"; }
 		result += Util.intToDottedDecimal(maskAddress) + "\t";
-		result += interfaceName;
+		result += interfaceName + "\t";
+		result += cost;
+		
+		
+		
 		return result;
 	}
 }
