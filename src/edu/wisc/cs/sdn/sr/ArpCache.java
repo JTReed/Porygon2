@@ -5,7 +5,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Ethernet;
+import net.floodlightcontroller.packet.ICMP;
+import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.util.MACAddress;
+import edu.wisc.cs.sdn.sr.RouteTable;
+import edu.wisc.cs.sdn.sr.RouteTableEntry;
 
 /**
  * A cache of MAC address to IP address mappings.
@@ -88,14 +92,12 @@ public class ArpCache implements Runnable
 		
 		if (request.getSentCount() >= MAX_SEND_COUNT)
 		{
-			/*********************************************************/
-		    /* TODO: send ICMP host unreachable to the source        */ 
-		    /* address of all packets waiting on this request        */
-			//TODO: ICMP.TYPE_UNREACHABLE_ERROR
-			
-			System.out.println( "ARP request timeout" );
-			
-		    /*********************************************************/
+			// TODO: Test this
+			for( Ethernet pkt : request.getWaitingPackets() ) {
+				RouteTableEntry entry =  router.findBestRoute( (IPv4)pkt.getPayload() );
+				Iface inIface = router.getInterface( entry.getInterface() );
+				router.sendICMPReply(pkt, inIface, ICMP.TYPE_UNREACHABLE, ICMP.CODE_HOST_UNREACHABLE );
+			}
 			
 			this.requests.remove(request.getIpAddress());
 		}
@@ -217,7 +219,7 @@ public class ArpCache implements Runnable
 		
 		// Send ARP request
 		System.out.println("Send ARP reply");
-		System.out.println(arpReply.toString());
+		System.out.println(etherReply.toString());
 		this.router.sendPacket(etherReply, iface);
 	}
 	
