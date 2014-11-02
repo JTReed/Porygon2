@@ -278,7 +278,33 @@ public class Router {
 		 * ICMP message back + to the sender notifying them of an error. + 2.
 		 * pass the packet to the ARP or RIP subsystems + See: Invoking Control
 		 * Plane Code & Responding to Pings + 3. respond with an ICMP packet +
-		 * See: ICMP on wbpge + SEE PART THREE on WEBSITE under "Router.java" +
+		 * See: Iase ARP.OP_REQUEST:
+				System.out.println( "handlign ARP request" );
+				// Check if request is for one of my interfaces
+				if (targetIp == inIface.getIpAddress()) {
+					this.arpCache.sendArpReply(etherPacket, inIface);
+				}
+				break;
+			case ARP.OP_REPLY:
+				System.out.println( "handlign ARP reply from " + Util.intToDottedDecimal( Integer.parseInt( arpPacket.getSenderProtocolAddress().toString() ) ) );
+				// Check if reply is for one of my interfaces
+				if (targetIp != inIface.getIpAddress()) {
+					break;
+				}
+	
+				// Update ARP cache with contents of ARP reply
+				ArpRequest request = this.arpCache.insert(
+						new MACAddress(arpPacket.getTargetHardwareAddress()),
+						targetIp);
+	
+				// Process pending ARP request entry, if there is one
+				if (request != null) {
+					for (Ethernet packet : request.getWaitingPackets()) {
+						if (nextHop( packet )){
+							arpCache.removeFromRequests( request );
+						}
+					}
+				}CMP on wbpge + SEE PART THREE on WEBSITE under "Router.java" +
 		 * SEE sendPacket() to send +
 		 */
 
@@ -313,37 +339,40 @@ public class Router {
 
 		// Get ARP header
 		ARP arpPacket = (ARP) etherPacket.getPayload();
-		int targetIp = ByteBuffer.wrap(arpPacket.getTargetProtocolAddress())
-				.getInt();
+		int targetIp = ByteBuffer.wrap(arpPacket.getTargetProtocolAddress()).getInt();
 
 		switch (arpPacket.getOpCode()) {
-		case ARP.OP_REQUEST:
-			// Check if request is for one of my interfaces
-			if (targetIp == inIface.getIpAddress()) {
-				this.arpCache.sendArpReply(etherPacket, inIface);
-			}
-			break;
-		case ARP.OP_REPLY:
-			// Check if reply is for one of my interfaces
-			if (targetIp != inIface.getIpAddress()) {
-				break;
-			}
-
-			// Update ARP cache with contents of ARP reply
-			ArpRequest request = this.arpCache.insert(
-					new MACAddress(arpPacket.getTargetHardwareAddress()),
-					targetIp);
-
-			// Process pending ARP request entry, if there is one
-			if (request != null) {
-				for (Ethernet packet : request.getWaitingPackets()) {
-					/*********************************************************/
-					/* TODO: send packet waiting on this request */
-
-					/*********************************************************/
+			case ARP.OP_REQUEST:
+				System.out.println( "handling ARP request" );
+				// Check if request is for one of my interfaces
+				if (targetIp == inIface.getIpAddress()) {
+					this.arpCache.sendArpReply(etherPacket, inIface);
 				}
-			}
-			break;
+				break;
+			case ARP.OP_REPLY:
+				System.out.println("handling ARP Reply");
+				// Check if reply is for one of my interfaces
+				if (targetIp != inIface.getIpAddress()) {
+					break;
+				}
+	
+				
+				// Update ARP cache with contents of ARP reply
+				int senderIp = ByteBuffer.wrap( arpPacket.getSenderProtocolAddress()).getInt();
+				ArpRequest request = this.arpCache.insert(new MACAddress(arpPacket.getSenderHardwareAddress()), senderIp);
+				
+				// Process pending ARP request entry, if there is one
+				if (request != null) {
+					for (Ethernet packet : request.getWaitingPackets()) {
+						if (nextHop( packet )){
+							arpCache.removeFromRequests( request );
+						}
+					}
+				}
+				else {
+					System.out.println( "request is null" );
+				}
+				break;
 		}
 	}
 
@@ -375,9 +404,8 @@ public class Router {
 		}
 
 		// Check if this packet is on one of our interfaces
-		for (Map.Entry<String, Iface> interfaceEntry : getInterfaces()
-				.entrySet()) {
-			if (targetAddress == interfaceEntry.getValue().getIpAddress()) {
+		for (Map.Entry<String, Iface> interfaceEntry : getInterfaces().entrySet()) {
+			if ( targetAddress == interfaceEntry.getValue().getIpAddress()) {
 				isOnInterface = true;
 				break;
 			}
@@ -430,83 +458,19 @@ public class Router {
 				System.out.println("Packet not ICMP, TCP, or UDP - Ignored");
 				break;
 			}
-		} else {
-			// TODO: Find out which entry in the routing table has the longest
-			// prefix match with the destination IP address.
-
-			List<RouteTableEntry> routeTableEntries = routeTable.getEntries();
-
-			RouteTableEntry destRouteEntry = null;
-			int longestMask = -(Integer.MAX_VALUE);
-			ArpEntry arpEntry = null;
-			Iface iFace = null;
-
-			for (RouteTableEntry entry : routeTableEntries) {
-				if ((targetAddress & entry.getMaskAddress()) == entry
-						.getDestinationAddress()) {
-					// if we have more than one match, we want the most SPECIFIC
-					// one (longest mask)
-					if (entry.getMaskAddress() > longestMask) {
-						System.out.println("set a new destination route: "
-								+ Util.intToDottedDecimal(entry
-										.getDestinationAddress()));
-						longestMask = entry.getMaskAddress();
-						destRouteEntry = entry;
-					}
-				}
-			}
-
-			if (destRouteEntry == null) {
-				System.out.println("not found in route table");
-				// TODO: ADD ICMP ICMP.TYPE_UNREACHABLE_ERROR
-				return;
-			}
-
-			/*
-			 * TODO: Check the ARP cache for the next-hop MAC address
-			 * corresponding to the next-hop IP. If it's there, send the packet.
-			 * Otherwise, call waitForArp(...) function in the ARPCache class to
-			 * send an ARP request for the next-hop IP, and add the packet to
-			 * the queue of packets waiting on this ARP request.
-			 */
-
-			// Case where we cannot resolve MAC address
-			arpEntry = arpCache.lookup(destRouteEntry.getDestinationAddress());
-			if (arpEntry == null) {
-				System.out.println("Destination not found in ARP cache.");
-				// wait for ARP
-
-				// packet in interface where it needs to go out on desitination
-				// IP discovered with routing table
-				arpCache.waitForArp(etherPacket,
-						interfaces.get(destRouteEntry.getInterface()),
-						destRouteEntry.getDestinationAddress());
-				System.out.println("We're waiting for ARP");
-				return;
-			}
-
-			// case where we CAN map the destination IP to a MAC address
-			else {
-				// set dest MAC address
-				etherPacket.setDestinationMACAddress(arpEntry.getMac()
-						.toString());
-				// send packet to destination
-				iFace = new Iface(destRouteEntry.getInterface());
-				iFace.setMacAddress(arpEntry.getMac());
-				iFace.setIpAddress(destRouteEntry.getDestinationAddress());
-
-				boolean sent = sendPacket(etherPacket, iFace);
-
-				if (!sent) {
-					// TODO: sending packet failed
-					System.out.println("Could not send packet, sorry");
-					return;
-
-				}
-			}
+		} 
+		else {
+			nextHop( etherPacket );
 		}
 	}
 
+	/**
+	 * Create and send the appropriate ICMP Reply based on type and code arguments
+	 * @param originalPacket
+	 * @param inIface
+	 * @param type
+	 * @param code
+	 */
 	private void sendICMPReply(Ethernet originalPacket, Iface inIface, byte type, byte code) {
 		ICMP originalIcmpPacket = null;
 		IPv4 originalIpPacket = null;
@@ -585,6 +549,109 @@ public class Router {
 		etherPacket.setPayload(ipPacket);
 
 		// Send ICMP reply
-		sendPacket( etherPacket, inIface ); // send on iface we received on? 
+		if( !sendPacket( etherPacket, inIface ) ) { // send on iface we received on? 
+			System.out.println( "ICMP reply could not send" );
+		}
 	}
+	
+	/**
+	 * Determines and sends packet to next hop location
+	 * @param etherPacket
+	 */
+	public boolean nextHop( Ethernet etherPacket ) {
+		
+		boolean success = false;
+		
+		RouteTableEntry destRouteEntry = findBestRoute( (IPv4)etherPacket.getPayload() );
+		if( destRouteEntry == null ) {
+			System.out.println("not found in route table");
+			// TODO: ADD ICMP ICMP.TYPE_UNREACHABLE_ERROR
+			return false;
+		}
+		
+		ArpEntry arpMapping = lookupMacInCache( destRouteEntry, etherPacket );
+		if( arpMapping != null) {
+			sendResolvedPacket(etherPacket, destRouteEntry, arpMapping );
+			success = true;
+		}
+		return success;
+	}
+	
+	/**
+	 * Finds the closest matching route table entry to the ip packet
+	 * @param ipPacket
+	 * @return The routing table entry that closest matches the destination, null if it does not exist
+	 */
+	public RouteTableEntry findBestRoute( IPv4 ipPacket ) {
+		
+		List<RouteTableEntry> routeTableEntries = routeTable.getEntries();
+		// TODO: Find out which entry in the routing table has the longest
+		// prefix match with the destination IP address.
+
+		RouteTableEntry destRouteEntry = null;
+		int longestMask = -(Integer.MAX_VALUE);
+
+		for (RouteTableEntry entry : routeTableEntries) {
+			if ((ipPacket.getDestinationAddress() & entry.getMaskAddress()) == entry
+					.getDestinationAddress()) {
+				// if we have more than one match, we want the most SPECIFIC
+				// one (longest mask)
+				if (entry.getMaskAddress() > longestMask) {
+					longestMask = entry.getMaskAddress();
+					destRouteEntry = entry;
+				}
+			}
+		}
+
+		if (destRouteEntry == null) {
+			return null;
+		}
+		return destRouteEntry;
+	}
+	
+	/**
+	 * tries to map a destination IP address to a MAC address using the ARPCache
+	 * @param destRouteEntry
+	 * @param etherPacket
+	 * @return returns null if there is no mapping and WaitForArp() was called
+	 */
+	public ArpEntry lookupMacInCache(RouteTableEntry destRouteEntry, Ethernet etherPacket ) {
+		ArpEntry arpEntry = arpCache.lookup(destRouteEntry.getDestinationAddress());
+		
+		if( arpEntry == null ) {
+			// the Mapping was not found in the ARPCache
+			arpCache.waitForArp(etherPacket, interfaces.get( destRouteEntry.getInterface() ), destRouteEntry.getDestinationAddress() );
+			System.out.println( "waiting for arp" );
+			return null;
+		}
+		
+		return arpEntry;
+	}
+	
+	/**
+	 * sends the packet to its destination on the correct interface
+	 * @param etherPacket
+	 * @param destRouteEntry
+	 * @param arpEntry
+	 */
+	public void sendResolvedPacket( Ethernet etherPacket, RouteTableEntry destRouteEntry, ArpEntry arpEntry ) {
+		// set MAC addresses on outgoing packet
+		etherPacket.setSourceMACAddress( interfaces.get( destRouteEntry.getInterface() ).getMacAddress().toBytes() );
+		etherPacket.setDestinationMACAddress(arpEntry.getMac().toString());
+		// send packet to destination
+		Iface outIface = new Iface(destRouteEntry.getInterface());
+		outIface.setMacAddress(arpEntry.getMac());
+		outIface.setIpAddress(destRouteEntry.getDestinationAddress());
+
+		if( !sendPacket(etherPacket, outIface) ) {
+			// TODO: sending packet failed
+			System.out.println("Could not send packet, sorry");
+			return;
+		}
+		else {
+			System.out.println( "ethernet packet sent successfully :)" );
+			System.out.println( etherPacket.toString() + "\n" );
+		}
+	}
+	
 }
