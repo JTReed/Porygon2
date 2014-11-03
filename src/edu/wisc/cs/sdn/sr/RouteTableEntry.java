@@ -56,6 +56,7 @@ public class RouteTableEntry
 		this.gatewayAddress = gatewayAddress;
 		this.maskAddress = maskAddress;
 		this.interfaceName = ifaceName;
+		this.cost = 1;
 	}
 	
 	/**
@@ -83,8 +84,8 @@ public class RouteTableEntry
     public long getTimestamp()
     { return this.timeStamp; }
     
-    public void setTimeStamp(long timestamp)
-    { this.timeStamp = timeStamp; }
+    public void setTimeStamp()
+    { this.timeStamp = System.currentTimeMillis() / 1000L; }
     
     
     

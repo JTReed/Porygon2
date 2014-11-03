@@ -29,7 +29,12 @@ public class RouteTable
 	 * @return entries in the route table
 	 */
 	public List<RouteTableEntry> getEntries()
-	{ return this.entries; }
+	{ 
+		synchronized(this.entries)
+	    {
+	        return new LinkedList<RouteTableEntry>(this.entries);
+	    }
+	}
 	
 	/**
 	 * Populate the route table from a file.
@@ -139,6 +144,14 @@ public class RouteTable
         }
 	}
 	
+	public void addEntry(int dstIp, int gwIp, int maskIp, String iface, int cost) {
+		RouteTableEntry entry = new RouteTableEntry(dstIp, gwIp, maskIp, iface, cost);
+        synchronized(this.entries)
+        { 
+            this.entries.add(entry);
+        }
+	}
+	
 	/**
 	 * Remove an entry from the route table.
 	 * @param dstIP destination IP of the entry to remove
@@ -175,6 +188,21 @@ public class RouteTable
             { return false; }
             entry.setGatewayAddress(gwIp);
             entry.setInterface(ifaceName);
+            entry.setTimeStamp();
+        }
+        return true;
+	}
+	
+	public boolean updateEntry(int dstIp, int maskIp, int gwIp, String ifaceName, int cost ) {
+		synchronized(this.entries)
+        {
+            RouteTableEntry entry = this.findEntry(dstIp, maskIp);
+            if (null == entry)
+            { return false; }
+            entry.setGatewayAddress(gwIp);
+            entry.setInterface(ifaceName);
+            entry.setCost(cost);
+            entry.setTimeStamp();
         }
         return true;
 	}
@@ -195,8 +223,8 @@ public class RouteTable
                     && (entry.getMaskAddress() == maskIp)) 
                 { return entry; }
             }
+            return null;
         }
-        return null;
     }
 
 	/**
@@ -225,7 +253,7 @@ public class RouteTable
             if (0 == this.entries.size())
             { return " * warning* Routing table empty"; }
             
-            String result = "Destination\tGateway\t\tMask\t\tIface\n";
+            String result = "Destination\tGateway\t\tMask\t\tIface\tCost\n";
             for (RouteTableEntry entry : entries)
             { result += entry.toString()+"\n"; }
 		    return result;

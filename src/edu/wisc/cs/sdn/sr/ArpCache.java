@@ -96,7 +96,7 @@ public class ArpCache implements Runnable
 			for( Ethernet pkt : request.getWaitingPackets() ) {
 				RouteTableEntry entry =  router.findBestRoute( (IPv4)pkt.getPayload() );
 				Iface inIface = router.getInterface( entry.getInterface() );
-				System.out.println( "ERROR: Host unreachable" );
+				System.out.println( "ERROR: Host unreachable - arp timeout" );
 				router.sendICMPReply(pkt, inIface, ICMP.TYPE_UNREACHABLE, ICMP.CODE_HOST_UNREACHABLE );
 			}
 			
