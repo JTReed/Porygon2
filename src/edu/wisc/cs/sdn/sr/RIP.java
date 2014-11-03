@@ -60,70 +60,6 @@ public class RIP implements Runnable
 
 		this.tasksThread.start();
 
-		/**
-		 * Katie's notes on Distance Vector Calculations:
-		 * 1. each "node" only knows it's own routing table and inits with it's iFaces
-		 * 2. other nodes are known to be reachable only after being informed by other nodes(RIP pkt?)
-		 * 
-		 * when update:
-		 * Periodic - auto sends a routing update to its neighbors, even if nothing has changed
-		 * 		lets other nodes it is still running
-		 * Triggered - when a node notices a link failure or receives an update
-		 * 		whenever a node's routing table changes, it send an update to neighbors
-		 * 
-		 * When a node fails:
-		 * How check? Periodically checks if link up and/or did not receive update in X time/cylcles
-		 * 
-		 * Count to infinity problem:
-		 * Circle updates. 
-		 * Solution?
-		 * 1. Max hops = infinity?
-		 * 2. Split horizon = do not send updates to neighbors from which it *received* the update
-		 * 		ex. (B has entry (E, 2, A), meaning it learned the route to E through A likely through A, 
-		 * 			so does not advertise the path to E to A)
-		 * 3. Split horizon with poison reverse = B sends update to A, but with a neg num for E,
-		 * 		ensuring that A does not use B to get to E should its own link go down.
-		 * 
-		 * There is a background process decrementing TTL, discarding routes that have a time to live of 0
-		 * TTL is reset to MAX any time the route is reconfirmed by an update message
-		 * 
-		 * Add new route if not at MAXROUTES, else ignore.
-		 * 
-		 * mergeRoute(Route new)//updates entry if better path
-		 * updateRoutingTable(Route neewRoute, int numNewRoutes)//main routing that calls merge
-		 * 		incorporates all routes contained in a routing update
-		 ***/
-
-		/**
-		 * Katie's notes on RIP:
-		 * 
-		 * Routers running RIP send advertisements every 30 seconds
-		 * also sends update message whenever an update from another routers changes it routing table.
-		 * 
-		 * It supports multiple address families, not just IP. 
-		 * 
-		 * v2 also introduced subnet masks
-		 * 
-		 * possible to use range of diff metrics or costs for the links.
-		 * 
-		 * RIP takes simplest approch, with all link costs being equal to 1; 
-		 * thus, always tries to find minimum hop route
-		 * 
-		 * Valid distances are 1 through 15, 16 representing infinity. 
-		 * 
-		 * Limits RIP to running on fairly small networks - those with paths no longer than 15 hops
-		 */
-		/*********************************************************************/
-		/* TODO: Add other initialization code as necessary
-		   if not a static static routing table...
-		   	populates the route table with entries
-		   	for the subnets that are directly reachable
-		   	via the router's interfaces, starts a
-		   	thread for period RIP tasks, and performs
-		   	other initialization for RIP as necessary
-		 */
-
-		/*********************************************************************/
 		Iface iFace = null;
 		byte command = RIPv2.COMMAND_REQUEST;
 		sendRipPacket( null, iFace, command );
@@ -147,14 +83,6 @@ public class RIP implements Runnable
 		if (udpPacket.getDestinationPort() != UDP.RIP_PORT)
 		{ return; }
 		RIPv2 ripPacket = (RIPv2)udpPacket.getPayload();
-
-		/*********************************************************************/
-		/* TODO: Handle RIP packet
-			If NOT a static routing table
-			Processes a RIP packet that is received by the router
-
-		 */
-		/*********************************************************************/
 
 		switch( ripPacket.getCommand() ) {
 		case RIPv2.COMMAND_REQUEST:
@@ -256,7 +184,6 @@ public class RIP implements Runnable
 			newEtherPacket.setPayload( ipPacket );
 			newEtherPacket.serialize();
 
-			//System.out.println("Sending rip packet to " + Util.intToDottedDecimal(ipPacket.getDestinationAddress()) );
 			this.router.sendPacket( newEtherPacket, currentInterface );
 		}
 	}
@@ -269,12 +196,7 @@ public class RIP implements Runnable
 		RIPv2 ripPacket = (RIPv2)udpPacket.getPayload();
 		RouteTable routeTable = this.router.getRouteTable();
 		boolean hasUpdated = false;
-		
-		//System.out.println( "RIP Entries in response: ");
-		//System.out.println( ripPacket.toString() );
 
-		System.out.println("Processing Response: Routing Table before process\n" + 
-							routeTable.toString() );
 		for( RIPv2Entry ripEntry : ripPacket.getEntries() ) {			
 			if( ripEntry.getMetric() > MAX_HOPS ) {
 				// don';t want to deal with this packet
@@ -286,7 +208,6 @@ public class RIP implements Runnable
 			if( foundEntry == null ) {
 				// entry is in the packet and not in the routing table - ADD IT
 				routeTable.addEntry( ripEntry.getAddress(), inIface.getIpAddress(), ripEntry.getSubnetMask(), inIface.getName(), ripEntry.getMetric() );
-				System.out.println( "updating because " + Util.intToDottedDecimal(ripEntry.getAddress() ) + " is new" );
 				hasUpdated = true;
 			}
 			else {
@@ -295,7 +216,6 @@ public class RIP implements Runnable
 				if ( ripEntry.getMetric() < foundEntry.getCost())  {
 					// SHORTER PATH FOUND
 					routeTable.updateEntry( ripEntry.getAddress(), ripEntry.getSubnetMask(), inIface.getIpAddress(), inIface.getName(), ripEntry.getMetric() );
-					System.out.println( "updating because this path was better" );
 					hasUpdated = true;
 				}
 
@@ -308,31 +228,19 @@ public class RIP implements Runnable
 		if( hasUpdated ) {
 			// tell everyone that we updated
 			sendRipPacket( null, null, RIPv2.COMMAND_RESPONSE );
-			//System.out.println( "Updated Route Table\n" + routeTable.toString() );
 		}
 	}
 
-	//TODO: FOR CONTROL PLANE
 	/**
 	 * Perform periodic RIP tasks.
 	 */
 	@Override
 	public void run() 
 	{
-		/*********************************************************************/
-		/* TODO: Send period updates and time out route table entries
-			if no static routing table provided
-			send updates to neighbors
-			time out route table entries that neighbors last advertised > 30 secds ago
-		 */
-
-		/*********************************************************************/
-
 		//Send out timed updates of your table every 10 seconds
 		//iterate through interfaces and send out packet on every one (RIP.UPDATE_INTERVAL)
 
 		while(true){
-			System.out.println( "PING" );
 			try{
 				tasksThread.sleep(RIP.UPDATE_INTERVAL*1000);
 			}

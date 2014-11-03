@@ -352,12 +352,10 @@ public class Router {
 			// congratulations, this packet has arrived at its destination!
 			// either that or it was sent to the multicast address
 
-			System.out.println("We see destined interface");
 			byte ipProtocol = ipPacket.getProtocol();
 			short port;
 			switch (ipProtocol) {
 			case IPv4.PROTOCOL_ICMP:
-				System.out.println("ICMP packet confirmed");
 				ICMP icmpPacket = (ICMP) ipPacket.getPayload();
 				if (!checkChecksum(ipPacket)) {
 					System.out.println("icmp checksums do not match");
@@ -369,7 +367,6 @@ public class Router {
 						ICMP.CODE_ECHO_REPLY);
 				break;
 			case IPv4.PROTOCOL_TCP:
-				System.out.println("TCP confirmed");
 				TCP tcpPacket = (TCP) ipPacket.getPayload();
 				port = tcpPacket.getDestinationPort();
 
@@ -379,7 +376,6 @@ public class Router {
 						ICMP.CODE_PORT_UNREACHABLE);
 				break;
 			case IPv4.PROTOCOL_UDP:
-				System.out.println("UDP confirmed");
 				UDP udpPacket = (UDP) ipPacket.getPayload();
 				port = udpPacket.getDestinationPort();
 
@@ -486,7 +482,7 @@ public class Router {
 		if (!sendPacket(etherPacket, inIface)) {
 			System.out.println("ICMP reply could not send");
 		} else {
-			System.out.println("ICMP Reply sent successfuly :)");
+			//System.out.println("ICMP Reply sent successfuly :)");
 			// System.out.println( etherPacket.toString() + "\n" );
 		}
 	}
@@ -497,7 +493,6 @@ public class Router {
 	 * @param etherPacket
 	 */
 	public boolean nextHop(Ethernet etherPacket, Iface inIface) {
-		System.out.println("called nexthop");
 		boolean success = false;
 
 		RouteTableEntry destRouteEntry = findBestRoute((IPv4) etherPacket
@@ -529,7 +524,6 @@ public class Router {
 	 *         null if it does not exist
 	 */
 	public RouteTableEntry findBestRoute(IPv4 ipPacket) {
-		System.out.println("looking up best table entry");
 
 		List<RouteTableEntry> routeTableEntries = routeTable.getEntries();
 		// TODO: Find out which entry in the routing table has the longest
@@ -565,7 +559,6 @@ public class Router {
 	 */
 	public ArpEntry lookupMacInCache(RouteTableEntry destRouteEntry,
 			Ethernet etherPacket) {
-		System.out.println("looking up in arp cache");
 
 		ArpEntry arpEntry = this.arpCache.lookup(destRouteEntry
 				.getDestinationAddress());
